@@ -1,0 +1,397 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Class Tutes — Editor</title>
+  <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <style>
+    body{font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif; margin:0; background:#f6f7fb; color:#111;}
+    .header {display:flex; align-items:center; justify-content:space-between; padding:12px 20px; background: linear-gradient(90deg,#519cff,#904bb8); color:white;}
+    .app-title{font-weight:700;}
+    .btn {background:#fff; color:#333; border:none; padding:8px 12px; border-radius:8px; cursor:pointer; font-weight:600;}
+    .container{max-width:1100px; margin:24px auto; padding:0 16px;}
+    #home{display:block;}
+    .cards{display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:16px;}
+    .card{background:white; border-radius:12px; padding:12px; box-shadow:0 6px 18px rgba(20,20,40,0.06); display:flex; flex-direction:column;}
+    .card .meta{display:flex; justify-content:space-between; align-items:center; margin-top:8px; font-size:12px; color:#666;}
+    .editor-pane{display:none; height:calc(100vh - 72px);}
+    .toolbar{display:flex; align-items:center; gap:8px; padding:10px; background:#fff; border-bottom:1px solid #eee;}
+    .title-input{flex:1; font-size:18px; padding:8px; border:none; background:transparent; outline:none; font-weight:600;}
+    .quill-container{height:calc(100vh - 160px); background:white; margin:16px; border-radius:8px; overflow:auto;}
+    .side-actions{display:flex; gap:8px;}
+    .small{font-size:13px;}
+    .modal{position:fixed; left:0; top:0; right:0; bottom:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.35);}
+    .modal .box{background:white; padding:18px; border-radius:8px; width:380px;}
+    .hidden{display:none;}
+    .badge{background:#eef; color:#115; padding:4px 8px; border-radius:999px; font-weight:600;}
+    .status{font-size:13px; color:#666;}
+    .math{background:transparent; padding:0 2px;}
+    @media (max-width:700px){ .toolbar {flex-wrap:wrap;} .quill-container{margin:8px; height:calc(100vh - 220px);} }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="app-title">Class Tutes</div>
+    <div>
+      <button id="btn-new" class="btn">+ New Tute</button>
+      <button id="btn-toggle-home" class="btn">Home</button>
+      <span id="auth-area"></span>
+    </div>
+  </header>  <main class="container">
+    <section id="home">
+      <div style="display:flex; gap:12px; margin-bottom:12px; align-items:center;">
+        <input id="search" placeholder="Search tutes..." style="flex:1; padding:8px; border-radius:8px; border:1px solid #ddd;">
+        <select id="filter" style="padding:8px; border-radius:8px;">
+          <option value="">All grades/subjects</option>
+          <option value="Grade10">Grade 10</option>
+          <option value="Math">Math</option>
+        </select>
+      </div>
+      <div class="cards" id="cards"></div>
+    </section><section id="editor" class="editor-pane hidden">
+  <div class="toolbar">
+    <input id="tute-title" class="title-input" placeholder="Untitled tute">
+    <div class="side-actions">
+      <button id="btn-back" class="btn">← Back</button>
+      <button id="btn-save" class="btn">Save</button>
+      <button id="btn-insert-math" class="btn">Insert Math</button>
+      <button id="btn-insert-image" class="btn">Insert Image</button>
+      <button id="btn-preview" class="btn">Preview</button>
+    </div>
+    <div style="margin-left:12px;" class="status" id="save-status">Not saved</div>
+  </div>
+
+  <div id="editor-body">
+    <div id="quill-toolbar">
+      <select class="ql-header">
+        <option selected></option>
+        <option value="1"></option>
+        <option value="2"></option>
+      </select>
+      <button class="ql-bold"></button>
+      <button class="ql-italic"></button>
+      <button class="ql-underline"></button>
+      <button class="ql-list" value="ordered"></button>
+      <button class="ql-list" value="bullet"></button>
+      <button class="ql-align" value=""></button>
+      <button class="ql-align" value="center"></button>
+      <button class="ql-align" value="right"></button>
+    </div>
+    <div id="quill" class="quill-container"></div>
+  </div>
+</section>
+
+  </main>  <!-- Math modal -->  <div id="modal-math" class="modal hidden" aria-hidden="true">
+    <div class="box">
+      <h3>Insert LaTeX (math)</h3>
+      <textarea id="latex-input" rows="6" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px;" placeholder="e.g. \\frac{a}{b}"></textarea>
+      <div style="margin-top:8px; display:flex; gap:8px; justify-content:flex-end;">
+        <button id="math-cancel" class="btn">Cancel</button>
+        <button id="math-insert" class="btn">Insert</button>
+      </div>
+    </div>
+  </div>  <!-- Hidden file input for images -->  <input type="file" id="image-input" accept="image/*" class="hidden">  <!-- Libraries -->  <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>  <!-- Firebase (compat) -->  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-storage-compat.js"></script>  <script>
+  /* ========= Replace this firebaseConfig with your project's config ========= */
+  const firebaseConfig = {
+    apiKey: "REPLACE_ME",
+    authDomain: "REPLACE_ME",
+    projectId: "REPLACE_ME",
+    storageBucket: "REPLACE_ME",
+    messagingSenderId: "REPLACE_ME",
+    appId: "REPLACE_ME"
+  };
+  /* ========================================================================= */
+
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db = firebase.firestore();
+  const storage = firebase.storage();
+
+  let currentUser = null;
+  let quill = null;
+  let currentTuteId = null;
+  let saveTimer = null;
+  let lastLocalSave = 0;
+  let ignoreLocalSnapshot = false; // to prevent echo of our own writes
+
+  // Initialize Quill
+  function initQuill() {
+    quill = new Quill('#quill', {
+      modules: { toolbar: '#quill-toolbar' },
+      theme: 'snow'
+    });
+
+    // Render KaTeX for existing math spans on text-change
+    quill.on('text-change', () => {
+      renderMathInEditor();
+      scheduleSave();
+    });
+  }
+
+  function renderMathInEditor() {
+    // find all .math spans and re-render katex with their data-latex
+    const mathSpans = document.querySelectorAll('#quill .math');
+    mathSpans.forEach(span=>{
+      const latex = span.getAttribute('data-latex') || span.textContent;
+      try {
+        span.innerHTML = katex.renderToString(latex, {throwOnError:false});
+      } catch(e) {
+        // leave text as-is
+      }
+    });
+  }
+
+  // Debounced save
+  function scheduleSave() {
+    document.getElementById('save-status').textContent = 'Saving...';
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveTute, 900);
+  }
+
+  async function saveTute() {
+    if (!currentTuteId) return;
+    const docRef = db.collection('tutes').doc(currentTuteId);
+    const delta = quill.getContents();
+    const html = quill.root.innerHTML;
+    lastLocalSave = Date.now();
+    ignoreLocalSnapshot = true;
+    try {
+      await docRef.set({
+        title: document.getElementById('tute-title').value || 'Untitled',
+        delta: delta.ops,
+        html,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, {merge:true});
+      document.getElementById('save-status').textContent = 'Saved';
+    } catch (err) {
+      console.error('Save failed', err);
+      document.getElementById('save-status').textContent = 'Save failed';
+    } finally {
+      setTimeout(()=>{ ignoreLocalSnapshot = false; }, 800);
+    }
+  }
+
+  // Simple router
+  function showHome() {
+    document.getElementById('home').classList.remove('hidden');
+    document.getElementById('editor').classList.add('hidden');
+    currentTuteId = null;
+    if (quill) quill.enable(false);
+    loadTutes();
+  }
+
+  function openEditor(tuteId) {
+    document.getElementById('home').classList.add('hidden');
+    document.getElementById('editor').classList.remove('hidden');
+    currentTuteId = tuteId;
+    if (!quill) initQuill();
+    quill.enable(true);
+    loadTute(tuteId);
+  }
+
+  async function loadTutes() {
+    const cards = document.getElementById('cards');
+    cards.innerHTML = '<div style="grid-column:1/-1; color:#666; padding:12px">Loading...</div>';
+    if (!currentUser) { cards.innerHTML = '<div style="grid-column:1/-1; color:#666; padding:12px">Sign in to see your tutes.</div>'; return; }
+
+    // query both owner==uid and collaborators array-contains uid and merge
+    const uid = currentUser.uid;
+    const ownerQ = db.collection('tutes').where('owner', '==', uid).orderBy('updatedAt','desc').limit(50).get();
+    const collabQ = db.collection('tutes').where('collaborators','array-contains', uid).orderBy('updatedAt','desc').limit(50).get();
+
+    const [ownerSnap, collabSnap] = await Promise.all([ownerQ, collabQ]);
+    const items = new Map();
+    ownerSnap.forEach(doc=> items.set(doc.id, {id:doc.id, ...doc.data()}));
+    collabSnap.forEach(doc=> items.set(doc.id, {id:doc.id, ...doc.data()}));
+    cards.innerHTML = '';
+    if (items.size===0) {
+      cards.innerHTML = '<div style="grid-column:1/-1; color:#666; padding:12px">No tutes yet. Click "New Tute" to start.</div>';
+      return;
+    }
+    items.forEach(item=>{
+      const el = document.createElement('div');
+      el.className = 'card';
+      el.innerHTML = `<div style="display:flex; justify-content:space-between; align-items:flex-start;">
+        <div>
+          <div style="font-weight:700;">${escapeHtml(item.title||'Untitled')}</div>
+          <div style="margin-top:6px; font-size:13px; color:#555;">${escapeHtml(item.subject||'General')} · ${escapeHtml(item.grade||'')}</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:12px; color:#777;">${item.updatedAt && item.updatedAt.toDate ? timeAgo(item.updatedAt.toDate()) : ''}</div>
+          <button data-id="${item.id}" class="btn btn-open" style="margin-top:8px">Open</button>
+        </div>
+      </div>`;
+      cards.appendChild(el);
+    });
+
+    document.querySelectorAll('.btn-open').forEach(b=>{
+      b.addEventListener('click', e=>{
+        const id = e.currentTarget.getAttribute('data-id');
+        location.hash = `#editor:${id}`;
+        openEditor(id);
+      });
+    });
+  }
+
+  async function createNewTute() {
+    if (!currentUser) { alert('Sign in first'); return; }
+    const docRef = await db.collection('tutes').add({
+      title: 'Untitled',
+      owner: currentUser.uid,
+      collaborators: [currentUser.uid],
+      subject: '',
+      grade: '',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      html: '',
+      delta: []
+    });
+    location.hash = `#editor:${docRef.id}`;
+    openEditor(docRef.id);
+  }
+
+  async function loadTute(tuteId) {
+    document.getElementById('save-status').textContent = 'Loading...';
+    const docRef = db.collection('tutes').doc(tuteId);
+    // unsubscribe previous?
+    if (window._tuteListener) window._tuteListener();
+    window._tuteListener = docRef.onSnapshot(snapshot=>{
+      if (!snapshot.exists) {
+        alert('This tute was deleted');
+        showHome();
+        return;
+      }
+      if (ignoreLocalSnapshot) return; // skip echoes of our own writes
+      const data = snapshot.data();
+      document.getElementById('tute-title').value = data.title || 'Untitled';
+      if (data.delta && Array.isArray(data.delta)) {
+        try {
+          quill.setContents({ops: data.delta});
+        } catch(e) {
+          quill.root.innerHTML = data.html || '';
+        }
+      } else {
+        quill.root.innerHTML = data.html || '';
+      }
+      renderMathInEditor();
+      document.getElementById('save-status').textContent = 'Loaded';
+    });
+  }
+
+  // Insert math handler
+  document.getElementById('btn-insert-math').addEventListener('click', ()=>{
+    document.getElementById('modal-math').classList.remove('hidden');
+    document.getElementById('latex-input').value = '';
+  });
+
+  document.getElementById('math-cancel').addEventListener('click', ()=> {
+    document.getElementById('modal-math').classList.add('hidden');
+  });
+  document.getElementById('math-insert').addEventListener('click', ()=>{
+    const latex = document.getElementById('latex-input').value.trim();
+    if (!latex) return;
+    const safe = escapeHtml(latex);
+    const html = katex.renderToString(latex, {throwOnError:false});
+    const wrapper = `<span class="math" data-latex="${safe}">${html}</span>`;
+    const range = quill.getSelection(true);
+    quill.clipboard.dangerouslyPasteHTML(range ? range.index : quill.getLength(), wrapper);
+    document.getElementById('modal-math').classList.add('hidden');
+    scheduleSave();
+  });
+
+  // image insert
+  document.getElementById('btn-insert-image').addEventListener('click', ()=> {
+    document.getElementById('image-input').click();
+  });
+  document.getElementById('image-input').addEventListener('change', async (e)=>{
+    const file = e.target.files[0];
+    if (!file) return;
+    if (!currentTuteId) { alert('Save the tute first'); return; }
+    const path = `tute_images/${currentTuteId}/${Date.now()}_${file.name}`;
+    const ref = storage.ref().child(path);
+    const uploadTask = ref.put(file);
+    const status = document.getElementById('save-status');
+    status.textContent = 'Uploading image...';
+    uploadTask.on('state_changed', snap=>{
+      const pct = Math.round((snap.bytesTransferred/snap.totalBytes)*100);
+      status.textContent = `Uploading image ${pct}%`;
+    }, err=>{
+      console.error(err);
+      status.textContent = 'Image upload failed';
+    }, async ()=>{
+      const url = await ref.getDownloadURL();
+      const range = quill.getSelection(true);
+      quill.insertEmbed(range ? range.index : quill.getLength(), 'image', url);
+      scheduleSave();
+      status.textContent = 'Image uploaded';
+      document.getElementById('image-input').value = '';
+    });
+  });
+
+  // Helper utilities
+  function escapeHtml(s) {
+    return s ? s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : '';
+  }
+  function timeAgo(d) {
+    const s = Math.floor((Date.now() - d.getTime())/1000);
+    if (s < 60) return `${s}s`;
+    if (s < 3600) return `${Math.floor(s/60)}m`;
+    if (s < 86400) return `${Math.floor(s/3600)}h`;
+    return `${Math.floor(s/86400)}d`;
+  }
+
+  // Auth
+  auth.onAuthStateChanged(async user=>{
+    currentUser = user;
+    const authArea = document.getElementById('auth-area');
+    if (user) {
+      authArea.innerHTML = `<span class="badge">Hi, ${escapeHtml(user.displayName || user.email)}</span> <button id="btn-signout" class="btn">Sign out</button>`;
+      document.getElementById('btn-signout').addEventListener('click', ()=> auth.signOut());
+      // ensure user doc
+      await db.collection('users').doc(user.uid).set({
+        email: user.email,
+        displayName: user.displayName,
+        photoURL: user.photoURL,
+        lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+      }, {merge:true});
+      // auto-show home
+      showHome();
+    } else {
+      authArea.innerHTML = '<button id="btn-signin" class="btn">Sign in with Google</button>';
+      document.getElementById('btn-signin').addEventListener('click', signInWithGoogle);
+      showHome();
+    }
+  });
+
+  async function signInWithGoogle() {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    try {
+      await auth.signInWithPopup(provider);
+    } catch (err) {
+      console.error('Auth failed', err);
+      alert('Sign in failed: ' + err.message);
+    }
+  }
+
+  // UI wiring
+  document.getElementById('btn-new').addEventListener('click', createNewTute);
+  document.getElementById('btn-back').addEventListener('click', ()=>{ location.hash = '#home'; showHome(); });
+  document.getElementById('btn-save').addEventListener('click', saveTute);
+  document.getElementById('btn-preview').addEventListener('click', ()=> {
+    const html = quill.root.innerHTML;
+    const win = window.open('about:blank','_blank');
+    const doc = win.document;
+    doc.open();
+    doc.write(`<html><head><title>Preview</title><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css"></head><body>${html}<script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script><script>document.querySelectorAll('.math').forEach(s=>{try{s.innerHTML = katex.renderToString(s.getAttribute('data-latex')||s.textContent,{throwOnError:false});}catch(e){}})</script></body></html>`);doc.close();
+
+});
+
+// Hash routing window.addEventListener('hashchange', ()=> { const h = location.hash || '#home'; if (h.startsWith('#editor:')) { const id = h.split(':')[1]; openEditor(id); } else { showHome(); } });
+
+// initial document.addEventListener('DOMContentLoaded', ()=> { initQuill(); // route to hash const h = location.hash || '#home'; if (h.startsWith('#editor:')) { const id = h.split(':')[1]; openEditor(id); } else { showHome(); } // enable offline persistence (best-effort) if (db && db.enablePersistence) { try { db.enablePersistence({synchronizeTabs:true}); } catch(e) { console.warn('Persistence not available', e); } } }); </script>
+
+</body>
+</html>
