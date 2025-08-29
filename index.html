@@ -389,9 +389,9 @@
 
 });
 
-// Hash routing window.addEventListener('hashchange', ()=> { const h = location.hash || '#home'; if (h.startsWith('#editor:')) { const id = h.split(':')[1]; openEditor(id); } else { showHome(); } });
+Hash routing window.addEventListener('hashchange', ()=> { const h = location.hash || '#home'; if (h.startsWith('#editor:')) { const id = h.split(':')[1]; openEditor(id); } else { showHome(); } });
 
-// initial document.addEventListener('DOMContentLoaded', ()=> { initQuill(); // route to hash const h = location.hash || '#home'; if (h.startsWith('#editor:')) { const id = h.split(':')[1]; openEditor(id); } else { showHome(); } // enable offline persistence (best-effort) if (db && db.enablePersistence) { try { db.enablePersistence({synchronizeTabs:true}); } catch(e) { console.warn('Persistence not available', e); } } }); </script>
+initial document.addEventListener('DOMContentLoaded', ()=> { initQuill(); // route to hash const h = location.hash || '#home'; if (h.startsWith('#editor:')) { const id = h.split(':')[1]; openEditor(id); } else { showHome(); } // enable offline persistence (best-effort) if (db && db.enablePersistence) { try { db.enablePersistence({synchronizeTabs:true}); } catch(e) { console.warn('Persistence not available', e); } } }); </script>
 
 </body>
 </html>
